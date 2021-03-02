@@ -8,9 +8,6 @@ import random
 spider = BaiduSpider()
 
 # 搜索网页
-
-
-
 for i in range(0,20):
 
     resultDic = spider.search_web(query='Python',pn=i,exclude=["all"])
@@ -20,5 +17,4 @@ for i in range(0,20):
 
     resultList = spider.flat(resultDic)
     pprint(resultList)
-
     time.sleep(random.random())
