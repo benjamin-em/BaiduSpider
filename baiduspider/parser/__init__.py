@@ -394,7 +394,6 @@ class Parser(BaseSpider):
                         "origin": domain,
                         "url": href,
                         "time": time,
-                        "type": "result",
                     }
                 )
 
