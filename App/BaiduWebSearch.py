@@ -8,9 +8,11 @@ import random
 spider = BaiduSpider()
 
 # 搜索网页
-for i in range(0,20):
+for i in range(0,100):
 
-    resultDic = spider.search_web(query='Python',pn=i,exclude=["all"])
+    resultDic = spider.search_ads(query='防水补漏',pn=i)
+    if len(resultDic["results"]) == 0:
+        continue
 
     with open("./resultDic.txt", 'a', encoding='utf-8', newline='') as file:
         file.write(str(resultDic))

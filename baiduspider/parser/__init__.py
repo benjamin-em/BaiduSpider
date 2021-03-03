@@ -260,6 +260,163 @@ class Parser(BaseSpider):
             "pages": max(pages),
         }
 
+    def parse_advertising(self, content: str) -> dict:
+        """解析百度网页搜索的页面源代码.
+
+        Args:
+            content (str): 已经转换为UTF-8编码的百度网页搜索HTML源码.
+            exclude (list): 要屏蔽的控件.
+
+        Returns:
+            dict: 解析后的结果
+        """
+        soup = BeautifulSoup(content, "html.parser")
+        if soup.find("div", id="content_left") is None:
+            raise ParseError("Invalid HTML content.")
+        # 获取搜索结果总数
+        num = int(
+            str(soup.find("span", class_="nums_text").text)
+            .strip("百度为您找到相关结果约")
+            .strip("个")
+            .replace(",", "")
+        )
+
+        soup = BeautifulSoup(content, "html.parser")
+        results = soup.findAll("div", attrs={"cmatchid":True, "data-ecimtimesign":True})
+
+        res = []
+        for result in results:
+            des = None
+            try:
+                result["cmatchid"]
+            except:
+                continue
+            soup = BeautifulSoup(self._minify(str(result)), "html.parser")
+            # 链接,可能有多个推广链接,但是只取一个,后面的信息内容一样
+            href = soup.find("a").get("href").strip()
+            # 标题
+            title = self._format(str(soup.find("a").text))
+            # 时间
+            try:
+                time = self._format(
+                    soup.findAll("div", class_="c-abstract")[0]
+                    .find("span", class_="newTimeFactor_before_abs")
+                    .text
+                )
+            except (AttributeError, IndexError):
+                time = None
+            try:
+                # 简介
+                des = soup.find_all("div", class_="c-abstract")[0].text
+                soup = BeautifulSoup(str(result), "html.parser")
+                des = self._format(des).lstrip(str(time)).strip()
+            except IndexError:
+                try:
+                    des = des.replace("mn", "")
+                except (UnboundLocalError, AttributeError):
+                    des = None
+            if time:
+                time = time.split("-")[0].strip()
+            # 因为百度的链接是加密的了，所以需要一个一个去访问
+            # 由于性能原因，分析链接部分暂略
+            # if href is not None:
+            #     try:
+            #         # 由于性能原因，这里设置1秒超时
+            #         r = requests.get(href, timeout=1)
+            #         href = r.url
+            #     except:
+            #         # 获取网页失败，默认换回原加密链接
+            #         href = href
+            #     # 分析链接
+            #     if href:
+            #         parse = urlparse(href)
+            #         domain = parse.netloc
+            #         prepath = parse.path.split('/')
+            #         path = []
+            #         for loc in prepath:
+            #             if loc != '':
+            #                 path.append(loc)
+            #     else:
+            #         domain = None
+            #         path = None
+            try:
+                result["tpl"]
+            except:
+                print(result.prettify())
+            # is_not_special = (
+            #     result["tpl"]
+            #     not in [
+            #         "short_video_pc",
+            #         "sp_realtime_bigpic5",
+            #         "bk_polysemy",
+            #         "tieba_general",
+            #     ]
+            #     and result.find("article") is None
+            # )
+            domain = None
+            # if is_not_special:  # 确保不是特殊类型的结果
+            if True:
+                # 获取可见的域名
+                try:
+                    domain = (
+                        result.find("div", class_="c-row")
+                        .find("div", class_="c-span-last")
+                        .find("div", class_="se_st_footer")
+                        .find("a", class_="c-showurl")
+                        .text
+                    )
+                except Exception:
+                    try:
+                        domain = (
+                            result.find("div", class_="c-row")
+                            .find("div", class_="c-span-last")
+                            .find("p", class_="op-bk-polysemy-move")
+                            .find("span", class_="c-showurl")
+                            .text
+                        )
+                    except Exception:
+                        try:
+                            domain = (
+                                result.find("div", class_="se_st_footer")
+                                .find("a", class_="c-showurl")
+                                .text
+                            )
+                        except:
+                            domain = None
+                if domain:
+                    domain = domain.replace(" ", "")
+            # 加入结果
+            if title and href:
+                res.append(
+                    {
+                        "title": title,
+                        "des": des,
+                        "origin": domain,
+                        "url": href,
+                        "time": time,
+                        "type": "result",
+                    }
+                )
+
+        soup = BeautifulSoup(content, "html.parser")
+        soup = BeautifulSoup(str(soup.findAll("div", id="page")[0]), "html.parser")
+        # 分页
+        pages_ = soup.findAll("span", class_="pc")
+        pages = []
+        for _ in pages_:
+            pages.append(int(_.text))
+        # 如果搜索结果仅有一页时，百度不会显示底部导航栏
+        # 所以这里直接设置成1，如果不设会报错`TypeError`
+        if not pages:
+            pages = [1]
+        # 设置最终结果
+        result = res
+        return {
+            "results": result,
+            # 最大页数
+            "pages": max(pages),
+        }
+
     def parse_pic(self, content: str) -> dict:
         """解析百度图片搜索的页面源代码.
 

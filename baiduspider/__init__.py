@@ -246,6 +246,20 @@ class BaiduSpider(BaseSpider):
             self._handle_error(error, "BaiduSpider", "parse-web")
         return {"results": results["results"], "total": results["pages"]}
 
+    def search_ads(self, query: str, pn: int = 1) -> dict:
+        error = None
+        results = {"results": [], "pages": 0}
+        try:
+            text = quote(query, "utf-8")
+            url = "https://www.baidu.com/s?wd=%s&pn=%d" % (text, (pn - 1) * 10)
+            content = self._get_response(url)
+            results = self.parser.parse_advertising(content)
+        except Exception as err:
+            error = err
+        finally:
+            self._handle_error(error, "BaiduSpider", "parse-advertising")
+        return {"results": results["results"], "total": results["pages"]}
+
     def flat(self, result: dict) -> list:
         """
         "扁平化"搜索结果
